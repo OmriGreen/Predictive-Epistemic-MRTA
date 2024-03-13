@@ -1,5 +1,9 @@
 % clear, pack, clc
-% References: https://aleksandarhaber.com/solve-mixed-integer-linear-programming-milp-optimization-problems-in-matlab/
+% References:
+% https://aleksandarhaber.com/solve-mixed-integer-linear-programming-milp-optimization-problems-in-matlab/,
+% https://www.mathworks.com/help/optim/ug/travelling-salesman-problem.html
+%https://www.sciencedirect.com/science/article/pii/S1366554517302880#e0255   
+    %Eq 4 Ensures continuous Graph
 
 clear, clc
 % Scenario Setup
@@ -9,11 +13,91 @@ T = 2;
 cV = costVector(T, startLoc, endLoc);
 
 
-%Calculates all rows of A for the given number of Tasks
+% Calculates all rows of A for the given number of Tasks
 A1 = req1(T); %For all i z_iS=0
 A2 = req2(T); %for all j z_Ej = 0
 A3 = req3(T); %for all j sum_i!=E(z_ij)=1
+A4 = req4(T); %for all i sum_j!=S(z_ij)=1
+A5 = req5(T); %for all ij z_ij -> y_i = y_j+1 (y_S=T+1, y_E = 0)
 
+
+%for all ij z_ij -> y_i = y_j+1 (y_S=T+1, y_E = 0)
+function A5 = req5(T)
+     %Inputs
+    % T: The Number of Tasks
+    %Outputs
+    %A5: A set of 3 arrays showing for all ij z_ij -> y_i = y_j+1
+    A5 = [];
+    tA = [];
+
+    %y_S = T+1
+    for i=1:T+2
+        %Goes Through the j values
+        for j=1:T+2
+            tA = [tA 0];
+        end
+    end
+    for i=1:T+2
+        if i == 1
+            tA = [tA 1];
+        end
+        if i ~= 1
+            tA = [tA 0];
+        end
+    end
+    A5 = [A5; tA];
+    
+    %y_E = 0
+    tA = [];
+    for i=1:T+2
+        %Goes Through the j values
+        for j=1:T+2
+            tA = [tA 0];
+        end
+    end
+    for i=1:T+2
+        if i == T+2
+            tA = [tA 1];
+        end
+        if i ~= T+2
+            tA = [tA 0];
+        end
+    end
+    A5 = [A5; tA];
+
+
+end
+%for all i sum_j!=S(z_ij)=1
+function A4 = req4(T)
+  %Inputs
+    % T: The Number of Tasks
+    %Outputs
+    %A4: A set of T+1 arrays showing for all i sum_j!=S(z_ij)=1
+    A4 = [];
+     %Goes through the process T+1 times
+    for i=1:T+2
+        if i~= 1
+            tA = []; %Temporary requirement for each line
+            %Goes Through the i values
+            for j=1:T+2
+                %Goes Through the j values
+                for k=1:T+2
+                    if k==i
+                        tA = [tA 1];
+                    end
+                    if k~=i
+                        tA = [tA 0];
+                    end
+                end
+            end
+            %Adds values for y (irrelevant in this requirement)
+            for z= 1:T+2
+                tA =[tA 0];
+            end 
+            A4 = [A4;tA];
+        end
+    end
+end
 
 %for all j sum_i!=E(z_ij)=1
 function A3 = req3(T)
@@ -101,7 +185,7 @@ function A1 = req1(T)
     end 
 end
 
-%---------Cost Vector Functions----------
+%% ---------Cost Vector Functions----------
 
 %Creates a cost Vector for a MILP problem
 function cV = costVector(T,startLoc,endLoc)
