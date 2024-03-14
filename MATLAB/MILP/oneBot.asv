@@ -114,12 +114,11 @@ function A = calcA(T)
     A = [A1;A2;A3;A4;A5;A6];
 end
 
-%for all i sum_j!=E(x_ij)-sum_j!=E(x_ji)=0 INCOMPLETE!!
+%for all i sum_j!=E(x_ij)-sum_j!=E(x_ji)=0
 function A6 = req6(T)
     A6 = [];
     tA = [];
-    iC = 3;
-    jC =1;
+    iC = 1;
     for i=1:T+2
         for j=1:T+2
             if j~=T+2 && j~=i 
