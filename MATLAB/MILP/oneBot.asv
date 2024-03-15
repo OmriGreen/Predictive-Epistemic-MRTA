@@ -104,9 +104,6 @@ function beq = calcBeq(T)
 
     %A4: y_S = T+1
     beq = [beq; T+1];
-
-    %A5: y_E = 0
-    beq = [beq; 0];
   
 end
 
@@ -118,45 +115,11 @@ function Aeq = calcAeq(T)
     A2 = req2(T); % for all j sum_i(z_ij)=1
     A3 = req3(T); %for all i z_ii=0 -> sum_i(z_ii)=0
     A4 = req4(T); %y_S=T+1
-    A5 = req5(T); %y_E=0
 
-    Aeq = [A1;A2;A3; A4; A5];
+    Aeq = [A1;A2;A3];
 end
 
-%y_S=T+1
-function A5 = req5(T)
-    A5 = [];
-    for j = 1:T+2
-        for i = 1:T+2
-            A5 = [A5 0];
-        end
-    end
-    for y = 1:T+2
-        if y == T+2
-            A5 = [A5 1];
-        else
-            A5 = [A5 0];
-        end
-    end
-end
-
-%y_S=T+1
-function A4 = req4(T)
-    A4 = [];
-    for j = 1:T+2
-        for i = 1:T+2
-            A4 = [A4 0];
-        end
-    end
-    for y = 1:T+2
-        if y == 1
-            A4 = [A4 1];
-        else
-            A4 = [A4 0];
-        end
-    end
-end
-
+%y_S=T+1(T
 %for all i z_ii=0 -> sum_i(z_ii)=0
 function A3 = req3(T)
     A3 = [];
