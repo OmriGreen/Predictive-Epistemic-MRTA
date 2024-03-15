@@ -63,7 +63,12 @@ function bI=calcBIeq(T,B)
     for i = 2:T+2
         bI = [bI; T];
     end
-        
+
+
+    %I2: y_n >= 1 n = [1,2,...T+1] -> -y_n <= -1 n = [1,2,...T+1]
+    for i = 1:T+1
+        bI = [bI; -1];
+    end
 end
 
 %Calculate the Inequality Matrix
@@ -72,12 +77,33 @@ function I=calcIeq(T,B)
     %I1: y_n <= T n=[2,3,...T+2]
     I1 = getI1(T);
 
-    %I2: y_n >= 1 n = [1,2,...T+1]
-    
+    %I2: y_n >= 1 n = [1,2,...T+1] -> -y_n <= -1 n = [1,2,...T+1]
+    I2 = getI2(T);
 
 
-    I = [I1];
+    I = [I1; I2];
     
+end
+
+%I2: y_n >= 1 n = [1,2,...T+1] -> -y_n <= -1 n = [1,2,...T+1]
+function I2 = getI2(T)
+    I2 = [];
+    for n=1:T+1
+        tA = [];
+        for j = 1:T+2
+            for i = 1:T+2
+                tA = [tA 0];
+            end
+        end
+        for y = 1:T+2
+            if y==n
+                tA = [tA -1];
+            else
+                tA = [tA 0];
+            end
+        end
+        I2 = [I2; tA];
+    end
 end
 
 %I1: y_n <= T+1 n=[2,3,...T+2]
