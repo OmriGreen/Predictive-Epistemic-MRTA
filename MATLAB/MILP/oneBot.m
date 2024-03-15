@@ -52,33 +52,53 @@ for i=1:length(rawX)
 end
 x
 
-    cc = getCC(T,B);
 
 %% ======= Linear Inequality Constraints ======
 %Calculate Equality Constraints
 function bI=calcBIeq(T,B)
     bI = [];
     %% Continuity Constraint
-    %for all ij y_i-B(1-x_ij)-y_j<=0
-    for i = 1:(T+1)^2-(T+1)
-        %bI=[bI;-B];
+    
+    %I1: y_n <= T n=[2,3,...T+2]
+    for i = 2:T+2
+        bI = [bI; T];
     end
         
 end
 
 %Calculate the Inequality Matrix
 function I=calcIeq(T,B)
-    %% Continuity Constraint
-    %y_j>=y_i-B(1-z_ij) i,j=[2,...T+2]->B>=y_i-y_j+Bz_ij i,j=[2,...T+2]
-    cc = getCC(T,B);
+    %% Continuity Constraints
+    %I1: y_n <= T n=[2,3,...T+2]
+    I1 = getI1(T);
 
-    I=[cc];
+    %I2: y_n >= 1 n = [1,2,...T+1]
+    
+
+
+    I = [I1];
+    
 end
 
-%y_j>=y_i-B(1-z_ij) i,j=[2,...T+2]->B>=y_i-y_j+Bz_ij i,j=[2,...T+2]
-function CC = getCC(T,B)
-    CC = [];
-
+%I1: y_n <= T+1 n=[2,3,...T+2]
+function I1 = getI1(T)
+    I1 = [];
+    for n=2:T+2
+        tA = [];
+        for j = 1:T+2
+            for i = 1:T+2
+                tA = [tA 0];
+            end
+        end
+        for y = 1:T+2
+            if y==n
+                tA = [tA 1];
+            else
+                tA = [tA 0];
+            end
+        end
+        I1 = [I1; tA];
+    end
 end
 
 
