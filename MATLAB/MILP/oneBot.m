@@ -131,12 +131,14 @@ function beq = calcBeq(T)
         beq = [beq;0];
     end
 
-    %A4: for all i sum_j~=i(y_ji-y_ij)=sum_j~=i(x_ij)->sum_j~=i(y_ji-y_ij)-sum_j~=i(x_ij)=0
+    %A4: for all i sum_j~=i(y_ji-y_ij)=sum_j~=i(z_ij)->sum_j~=i(y_ji-y_ij)-sum_j~=i(x_ij)=0
+    for i=2:T+2
+        beq = [beq;0];
+    end
+    %A5: for all i sum_j~=i(y_ji-y_ij)=sum_j~=i(x_ij)->sum_j~=i(y_ji-y_ij)-sum_j~=i(x_ij)=0
     for i=1:T+2
         beq = [beq;0];
     end
-    
-
 end
 
 % Creates the Equality Matrix
@@ -148,14 +150,14 @@ function Aeq = calcAeq(T)
     A3 = req3(T); % for all j sum_i(z_ij-z_ji)=0
 
     %% Flow Constraints
-    A4 = req4(T) %for all i sum_j~=i(y_ji-y_ij)=sum_j~=i(x_ij)->sum_j~=i(y_ji-y_ij)-sum_j~=i(x_ij)=0
-
-    Aeq = [A1;A2;A3;A4];
+    A4 = req4(T) %sum_i(y_Si-y_iS)=sum_i,j(x_ij)-> %sum_i(y_Si-y_iS)-sum_i,j(z_ij) = 0
+    A5 = req5(T); %for all i sum_j~=i(y_ji-y_ij)=sum_j~=i(z_ij)->sum_j~=i(y_ji-y_ij)-sum_j~=i(x_ij)=0
+    Aeq = [A1;A2;A3;A4;A5];
 end
 
-%for all i sum_j~=i(y_ji-y_ij)=sum_j~=i(x_ij)->sum_j~=i(y_ji-y_ij)-sum_j~=i(x_ij)=0
-function A4=req4(T)
-    A4 = [];
+%for all i sum_j~=i(y_ji-y_ij)=sum_j~=i(x_ij)->for all i sum_j~=i(y_ji-y_ij)-sum_j~=i(x_ij)=0
+function A5=req5(T)
+    A5 = [];
 
     for iC = 1:T+2
         %Goes Through z
@@ -186,10 +188,41 @@ function A4=req4(T)
                 end
             end
         end
-        A4 = [A4; tA];
+        A5 = [A5; tA];
     end
 end
 
+%IN PROGRESS IS WHATS BREAKING EVERYTHING -- Multi-robot long-term
+%persistent coverage with fuel constrained robots Eq 11
+ %sum_i(y_Si-y_iS)=sum_i,j(x_ij)-> %sum_i(y_Si-y_iS)-sum_i,j(z_ij) = 0
+ function A4 = req4(T)
+    A4 = [];
+    %All z values -sum_i,j(z_ij)
+    zVals = -ones(1,(T+2)^2);
+
+    tA = [];
+    %Creates y values
+    %sum_i(y_Si-y_iS)
+    for iC = 2:T+2
+        tA = [];
+        for j = 1:T+2
+            for i = 1:T+2
+                if i == iC && j == 1 && j~=i
+                    tA = [tA 1];
+                else
+                    if j == iC && i == 1 && j~=i
+                        tA = [tA -1];
+                    else
+                        tA = [tA 0];
+                    end
+                end
+            end
+        end
+        A4 = [A4; zVals tA];
+    end
+    
+
+ end
 
 % for all j sum_i(x_ij-x_ji)=0
 function A3 = req3(T)
