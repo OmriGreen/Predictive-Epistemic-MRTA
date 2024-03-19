@@ -4,7 +4,7 @@
 % https://www.mathworks.com/help/optim/ug/travelling-salesman-problem.html
 %Techniques for Subtour Elimination in Traveling Salesman Problem: Theory and Implementation in Python   
 %Multi-robot long-term persistent coverage with fuel constrained robots
-    %Eq 11->I1
+    %I1, I2, A1, A2, A3
 
 clear, clc
 
@@ -53,6 +53,7 @@ end
 x
 
 
+
 %% ======= Linear Inequality Constraints ======
 %Calculate Equality Constraints
 function bI=calcBIeq(T)
@@ -88,9 +89,7 @@ function I1=getI1(T)
             end
         end
     end
-    for n = 1:T+2
-        I1 = [I1 0];
-    end
+    I1=[I1 zeros(1,(T+2)^2)];
 end
 
 %I1: sum_i(x_iS)<=1
@@ -105,9 +104,7 @@ function I2=getI2(T)
             end
         end
     end
-    for n = 1:T+2
-        I2 = [I2 0];
-    end
+    I2 = [I2 zeros(1,(T+2)^2)];
 end
 
 
@@ -133,11 +130,12 @@ function beq = calcBeq(T)
     for i=1:T+2
         beq = [beq;0];
     end
-    
-    %for all i sum_j~=i(y_j-y_i) = T+1
+
+    %A4: for all i sum_j~=i(y_ji-y_ij)=sum_j~=i(x_ij)->sum_j~=i(y_ji-y_ij)-sum_j~=i(x_ij)=0
     for i=1:T+2
-        beq = [beq;T+1];
+        beq = [beq;0];
     end
+    
 
 end
 
@@ -147,34 +145,49 @@ function Aeq = calcAeq(T)
     %% Degree Constraints
     A1 = req1(T); % for all i sum_j(z_ij)=1
     A2 = req2(T); % for all j sum_i(z_ij)=1
-    A3 = req3(T); % for all j sum_i(x_ij-x_ji)=0
+    A3 = req3(T); % for all j sum_i(z_ij-z_ji)=0
 
     %% Flow Constraints
-    A4 = req4(T); %for all i sum_j(y_j-y_i) = 
-
+    A4 = req4(T) %for all i sum_j~=i(y_ji-y_ij)=sum_j~=i(x_ij)->sum_j~=i(y_ji-y_ij)-sum_j~=i(x_ij)=0
 
     Aeq = [A1;A2;A3;A4];
 end
 
-%for all i 
-function A4 = req4(T)
+%for all i sum_j~=i(y_ji-y_ij)=sum_j~=i(x_ij)->sum_j~=i(y_ji-y_ij)-sum_j~=i(x_ij)=0
+function A4=req4(T)
     A4 = [];
-    temp = zeros(1,(T+2)^2);
 
-    for i = 1:T+2
-        tA = [temp];
+    for iC = 1:T+2
+        %Goes Through z
+        tA = [];
         for j = 1:T+2
-            if i~=j
-                tA=[tA -1];
-            else
-                tA = [tA T+1];
+            for i = 1:T+2
+                %-sum_j(x_ij)
+                if i == iC && i~=j
+                    tA = [tA -1];
+                else
+                    tA = [tA 0];
+                end
+            end
+        end
+
+        %Goes Through y
+        for j = 1:T+2
+            for i = 1:T+2
+                %sum_j~=i(y_ji-y_ij)
+                if j == iC
+                    tA = [tA 1];
+                else
+                    if i == iC
+                        tA = [tA -1];
+                    else
+                        tA = [tA 0];
+                    end
+                end
             end
         end
         A4 = [A4; tA];
     end
-
-
-
 end
 
 
@@ -196,9 +209,7 @@ function A3 = req3(T)
                 end
             end
         end
-        for n = 1:T+2
-            tA = [tA 0];
-        end
+        tA = [tA zeros(1,(T+2)^2)];
         A3 = [A3; tA];
     end
 end
@@ -219,9 +230,7 @@ function A2 = req2(T)
                     end
                 end
             end
-            for z=1:T+2
-                tA = [tA 0];
-            end 
+            tA = [tA zeros(1,(T+2)^2)]; 
             A2 = [A2;tA];
     end
 end
@@ -242,9 +251,7 @@ function A1 = req1(T)
                 end
             end
         end
-        for z=1:T+2
-            tA = [tA 0];
-        end 
+        tA = [tA zeros(1,(T+2)^2)];
         A1 = [A1;tA];
     end
 end
@@ -265,9 +272,7 @@ function cV = costVector(T,startLoc,endLoc, S)
             cV=[cV findDist(x1,x2,y1,y2)];
         end
     end
-    for i=1:T+2
-        cV = [cV 0];
-    end
+    cV = [cV zeros(1,(T+2)^2)];
 end
 
 %Finds the distance between two points
