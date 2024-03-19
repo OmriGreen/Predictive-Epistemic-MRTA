@@ -153,7 +153,16 @@ function beq = calcBeq(T)
 
     %A5: y_E = 0
     beq = [beq; 0];
-  
+
+    %A6: sum_n(y_b)=(T+1)+T+...+1
+    sum = 0;
+    for z=1:T+1
+        sum=sum+z;
+    end
+    beq = [beq; sum];
+
+    
+
 end
 
 % Creates the Equality Matrix
@@ -166,8 +175,27 @@ function Aeq = calcAeq(T)
     A4 = req4(T); %y_S=T+1
     A5 = req5(T); %y_E=0
 
-    Aeq = [A1;A2;A3; A4; A5];
+    %% y Constraints
+    A6 = req6(T); %sum_n(y_b)=(T+1)+T+...+1
+
+    Aeq = [A1;A2;A3; A4; A5; A6];
+    
 end
+
+%sum_n(y_b)=(T+1)+T+...+1
+function A6 = req6(T)
+    A6 = [];
+    for j = 1:T+2
+        for i = 1:T+2
+            A6 = [A6 0];
+        end
+    end
+    for y = 1:T+2
+        A6 = [A6 1];   
+    end
+
+end
+
 
 %y_S=T+1
 function A5 = req5(T)
