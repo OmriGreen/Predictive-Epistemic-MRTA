@@ -12,7 +12,7 @@ clear, clc
 S = 50; % The max X and max Y positions
 startLoc = [0 0]; % Start Location [x y]
 endLoc = [0 0]; % End Location [x y]
-T = 5; % Number of Tasks
+T = 3; % Number of Tasks
 
 % Cost Vector
 cV = costVector(T, S);
@@ -26,11 +26,10 @@ beq = calcBeq(T);
 intcon = 1:length(cV);
 
 % Lower bound constraint (NO NEGATIVE NUMBERS)
-lb = zeros(length(cV),1);
+lb = zeros(length(cV),1); % 0 for all values
 
 % Upper Bound value
-ub = ones(length(cV), 1) * inf;
-ub((T-1)^2+1) = T-1; % Adjust upper bound for the last variable
+ub = [ones(1,T^2) T*ones(1,T^2)];
 
 % Inequality Constraint Equation
 A = calcIeq(T);
@@ -52,8 +51,13 @@ for i=1:length(rawX)
 end
 x
 
+A1 = req1(T)
+A2 = req2(T)
+A3 = req3(T)
+A4 = req4(T)
 A5 = req5(T)
-
+I1 = getI1(T)
+I2 = getI2(T)
 
 %% ======= Linear Inequality Constraints ======
 %Calculate Equality Constraints
@@ -83,7 +87,7 @@ function I1=getI1(T)
     I1 = [];
     for j = 1:T
         for i = 1:T
-            if i==1
+            if i==1 && i~=j
                 I1 = [I1 1];
             else
                 I1 = [I1 0];
@@ -122,7 +126,7 @@ function beq = calcBeq(T)
         beq = [beq;1];
     end
 
-    % A2: for all i sum_jS(z_ij)=1
+    % A2: for all i sum_j(z_ij)=1
     for i=1:T
         beq = [beq;1];
     end
@@ -147,7 +151,7 @@ function Aeq = calcAeq(T)
     % Calculates all rows of A for the given number of Tasks
     %% Degree Constraints
     A1 = req1(T); % for all i sum_j(z_ij)=1
-    A2 = req2(T); % for all j sum_i(z_ij)=1
+    A2 = req2(T); % sum_j(z_Sj)=1
     A3 = req3(T); % for all j sum_i(z_ij-z_ji)=0
 
     %% Flow Constraints
@@ -156,7 +160,7 @@ function Aeq = calcAeq(T)
 
     %A5: Energy Updated after visiting each node
     A5 = req5(T);
-    Aeq = [A1;A2;A3;A4;A5];
+    Aeq = [A1;A2;A3; A4; A5];
 end
     
 %A5: Energy Updated after visiting each node
@@ -167,7 +171,7 @@ function A5 = req5(T)
         %Goes over z
         for j = 1:T
             for i = 1:T
-                if i == iC
+                if i == iC && i~=j
                     tA = [tA -1];
                 else
                     tA = [tA 0];
@@ -203,10 +207,10 @@ function A4 = req4(T)
     for j = 1:T
         for i = 1:T
             if i==1 && i~=j
-                A4 = [A4 1];
+                A4 = [A4 -1];
             else
                 if j == 1 && i~=j
-                    A4 = [A4 -1];
+                    A4 = [A4 1];
                 else
                     A4 = [A4 0];
                 end
@@ -223,10 +227,10 @@ function A3 = req3(T)
         tA = [];
         for j = 1:T
             for i = 1:T
-                if j == jC
+                if j == jC && i~=j
                     tA = [tA 1];
                 else
-                    if i == jC
+                    if i == jC && i~= j
                         tA = [tA -1];
                     else
                         tA = [tA 0];
@@ -247,10 +251,9 @@ function A2 = req2(T)
             tA = [];
             for j=1:T
                 for k=1:T
-                    if k==i
+                    if k==i && k~=j
                         tA = [tA 1];
-                    end
-                    if k~=i
+                    else
                         tA = [tA 0];
                     end
                 end
@@ -268,12 +271,12 @@ function A1 = req1(T)
         tA = [];
         for j=1:T
             for k=1:T
-                if j==i
+                if j==i && j~=k
                     tA = [tA 1];
-                end
-                if j~=i
+                else
                     tA = [tA 0];
                 end
+                
             end
         end
         tA = [tA zeros(1,(T)^2)];
