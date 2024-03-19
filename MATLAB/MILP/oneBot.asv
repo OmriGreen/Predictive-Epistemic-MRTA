@@ -150,7 +150,7 @@ function Aeq = calcAeq(T)
     A3 = req3(T); % for all j sum_i(x_ij-x_ji)=0
 
     %% Flow Constraints
-    A4 = req4(T); %for all i sum_j(y_j-y_i) = 
+    A4 = req4(T); %for all 
 
 
     Aeq = [A1;A2;A3;A4];
