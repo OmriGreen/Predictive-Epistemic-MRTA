@@ -4,15 +4,15 @@
 % https://www.mathworks.com/help/optim/ug/travelling-salesman-problem.html
 %Techniques for Subtour Elimination in Traveling Salesman Problem: Theory and Implementation in Python   
 %Multi-robot long-term persistent coverage with fuel constrained robots
-    %I1, I2, A1, A2, A3
+%[OR1-Modeling] Lecture 3: Integer Programming #11 Traveling salesperson problem: Subtour elimination
+    %https://www.youtube.com/watch?v=-m7ASCB0a8E
+    %Time=5:10
 
 clear, clc
 
 % Scenario Setup
 S = 50; % The max X and max Y positions
-startLoc = [0 0]; % Start Location [x y]
-endLoc = [0 0]; % End Location [x y]
-T = 3; % Number of Tasks
+T = 20; % Number of Tasks
 
 % Cost Vector
 cV = costVector(T, S);
@@ -26,10 +26,10 @@ beq = calcBeq(T);
 intcon = 1:length(cV);
 
 % Lower bound constraint (NO NEGATIVE NUMBERS)
-lb = zeros(length(cV),1); % 0 for all values
+lb = [zeros(1,T^2),1,2*ones(1,T-1)]; %for all i,j min(z_ij) = 0, y_S=1, y_i >=2 i = {2,...,T} 
 
 % Upper Bound value
-ub = [ones(1,T^2) T*ones(1,T^2)];
+ub = [ones(1,T^2),1,T*ones(1,T-1)]; %for all i,j max(z_ij)=1, y_S = 1, y_i <=T i = {2,...,T}
 
 % Inequality Constraint Equation
 A = calcIeq(T);
@@ -51,236 +51,191 @@ for i=1:length(rawX)
 end
 x
 
-A1 = req1(T)
-A2 = req2(T)
-A3 = req3(T)
-A4 = req4(T)
-A5 = req5(T)
-I1 = getI1(T)
-I2 = getI2(T)
+z1 = getZ1(T);
+z2 = getZ2(T);
+z3 = getZ3(T);
+z4 = getZ4(T);
+
 
 %% ======= Linear Inequality Constraints ======
 %Calculate Equality Constraints
 function bI=calcBIeq(T)
     bI = [];    
-    %I1: sum_j(x_Sj)<=1
-    bI = [bI;1];
-    %I2: sum_i(x_iS)<=1
-    bI=[bI;1];
+    for i = 1:(T-1)^2
+        bI = [bI; T-2];
+    end
 
 end
 
 %Calculate the Inequality Matrix
 function I=calcIeq(T)
-   %% Degree Constraints
-   %I1: sum_j(x_Sj)<=1
-    I1 = getI1(T);
-
-    %I2: sum_i(x_iS)<=1
-    I2 = getI2(T);
-
-   I=[I1;I2];
+   %% Flow Constraint
+   I=getFC(T);
 end
 
-%I1: sum_j(x_Sj)<=1
-function I1=getI1(T)
-    I1 = [];
-    for j = 1:T
-        for i = 1:T
-            if i==1 && i~=j
-                I1 = [I1 1];
-            else
-                I1 = [I1 0];
+%y_i-y_j +(T-1)z_ij <= T-2 i,j={2,...T}
+function fC = getFC(T)
+    fC = [];
+
+    %i,j={2,...T}
+    for jC = 2:T
+        for iC = 2:T
+            tA = [];
+            %Goes Through z
+            for j = 1:T
+                for i = 1:T
+                    %(T-1)z_ij
+                    if i==iC && j==jC
+                        tA = [tA T-1];
+                    else
+                        tA = [tA 0];
+                    end
+                end
             end
+            %Creates y
+            for n = 1:T
+                %If iC=jC y_i-y_n=0 therefore y_iC=0
+                %y_i
+                if n == iC && iC~=jC
+                    tA = [tA 1];
+                else
+                    %-y_j
+                    if n == jC && iC~=jC
+                        tA = [tA -1];
+                    %If iC == jC or n~=iC,jC
+                    else
+                        tA = [tA 0];
+                    end
+                end
+            end
+           fC = [fC; tA]; 
         end
     end
-    I1=[I1 zeros(1,(T)^2)];
 end
-
-%I1: sum_i(x_iS)<=1
-function I2=getI2(T)
-    I2 = [];
-    for j = 1:T
-        for i = 1:T
-            if j==1
-                I2 = [I2 1];
-            else
-                I2 = [I2 0];
-            end
-        end
-    end
-    I2 = [I2 zeros(1,(T)^2)];
-end
-
-
-
 
 
 %% ------------Linear Equality Constraints-------------
 %Creates all necessary equality constraints
 function beq = calcBeq(T)
     beq = [];
-    %%============== z constraints====================================
-    % A1: for all j sum_i(z_ij)=1
-    for i=1:T
-        beq = [beq;1];
+    %% Z Constraints
+    %z1: sum_j(z_ij)=1 i = {2,..., T}
+    for i = 2:T
+        beq = [beq; 1];
     end
-
-    % A2: for all i sum_j(z_ij)=1
-    for i=1:T
-        beq = [beq;1];
+    %z2: sum_i(z_ij)=1 j = {1,...T-1}
+    for i = 1:T-1
+        beq = [beq; 1];
     end
-
-    %A3: for all j sum_i
-    for i=1:T
-        beq = [beq;0];
-    end
-
-    %A4: Flow Through Starting Node
+    %z3: sum_i,j(z_ij)=T-1
+    beq = [beq; T-1];
+    %z4: sum_i(z_ii)=0
     beq = [beq; 0];
 
-    %A5: Energy Updated after visting each node
-    for i=1:T
-        beq = [beq;0];
-    end
-
+    %% y Constraints
+    %yS: y_S = 1
+    beq = [beq; 1];
 end
 
 % Creates the Equality Matrix
 function Aeq = calcAeq(T)
-    % Calculates all rows of A for the given number of Tasks
-    %% Degree Constraints
-    A1 = req1(T); % for all i sum_j(z_ij)=1
-    A2 = req2(T); % sum_j(z_Sj)=1
-    A3 = req3(T); % for all j sum_i(z_ij-z_ji)=0
+   Aeq = [];
+   
+   %% Z Constraints
+   %z1: for all i sum_j(z_ij)=1
+   Aeq = [Aeq; getZ1(T)];
+   %z2: sum_i(z_ij)=1 j = {1,...T-1}
+   Aeq = [Aeq; getZ2(T)];
+   %z3: sum_i,j(z_ij)=T-1
+   Aeq = [Aeq; getZ3(T)];
+   %z4: sum_i(z_ii)=0
+   Aeq = [Aeq; getZ4(T)];
 
-    %% Flow Constraints
-    %A4: Flow Through Starting Node
-    A4 = req4(T);
-
-    %A5: Energy Updated after visiting each node
-    A5 = req5(T);
-    Aeq = [A1;A2;A3; A4; A5];
+   %% y Constraints
+   %yS: y_S = 1
+   Aeq = [Aeq; getYs(T)];
+   
 end
-    
-%A5: Energy Updated after visiting each node
-function A5 = req5(T)
-    A5 = [];
-    for iC=1:T
-        tA = [];
-        %Goes over z
-        for j = 1:T
-            for i = 1:T
-                if i == iC && i~=j
-                    tA = [tA -1];
-                else
-                    tA = [tA 0];
-                end
-                
-            end
-        end
 
-        %Goes Through y
-        for j = 1:T
-            for i = 1:T
-                if j == iC && i ~= j
-                    tA = [tA 1];
-                else
-                    if i == iC && i ~= j
-                        tA = [tA -1];
-                    else
-                        tA = [tA 0];
-                    end
-                end
-            end
+%yS: y_S = 1
+function yS = getYs(T)
+    %Fills out z
+    yS = zeros(1,T^2);
+    %Gets y
+    for n = 1:T
+        if n == 1
+            yS = [yS 1];
+        else
+            yS = [yS 0];
         end
-        A5 =[A5; tA];
     end
 end
-
-%A4: Flow Through Starting Node
-function A4 = req4(T)
-    %Gets sum_i,h(z_ij)
-    A4 = -ones(1,(T)^2);
-    
-    %Gets sum_i(y_Si-y_iS)
+%z4: sum_i(z_ii)=0
+function z4 = getZ4(T)
+    z4 = [];
+    %Builds the Diagonal
     for j = 1:T
         for i = 1:T
-            if i==1 && i~=j
-                A4 = [A4 -1];
+            if i==j
+                z4 = [z4 1];
             else
-                if j == 1 && i~=j
-                    A4 = [A4 1];
-                else
-                    A4 = [A4 0];
-                end
+                z4 = [z4 0];
             end
         end
     end
+
+    %Adds an empty y
+    z4 = [z4 zeros(1,T)];
 end
 
+%z3: sum_i,j(z_ij)=T
+function z3 = getZ3(T)
+    z3 = [ones(1,T^2) zeros(1,T)];
+end
 
-% for all j sum_i(x_ij-x_ji)=0
-function A3 = req3(T)
-    A3 = [];
-    for jC=1:T
-        tA = [];
+%z2: sum_i(z_ij)=1 j = {1,...T-1}
+function z2 = getZ2(T)
+    z2 = []; %Stores data
+    %for all i
+    for jA=1:T-1
+        tA = [];%temporary array
+        %Creates vector
         for j = 1:T
             for i = 1:T
-                if j == jC && i~=j
-                    tA = [tA 1];
-                else
-                    if i == jC && i~= j
-                        tA = [tA -1];
-                    else
-                        tA = [tA 0];
-                    end
-                end
-            end
-        end
-        tA = [tA zeros(1,(T)^2)];
-        A3 = [A3; tA];
-    end
-end
-
-% for all i sum_j(z_ij)=1
-function A2 = req2(T)
-    A2 = [];
-
-    for i=1:T
-            tA = [];
-            for j=1:T
-                for k=1:T
-                    if k==i && k~=j
-                        tA = [tA 1];
-                    else
-                        tA = [tA 0];
-                    end
-                end
-            end
-            tA = [tA zeros(1,(T)^2)]; 
-            A2 = [A2;tA];
-    end
-end
-
-% for all j sum_i!=E(z_ij)=1
-function A1 = req1(T)
-    A1 = [];
-
-    for i=1:T
-        tA = [];
-        for j=1:T
-            for k=1:T
-                if j==i && j~=k
+                if jA == j
                     tA = [tA 1];
                 else
                     tA = [tA 0];
                 end
-                
             end
         end
-        tA = [tA zeros(1,(T)^2)];
-        A1 = [A1;tA];
+        %Creates an empty y 
+        tA = [tA zeros(1,T)];
+        %Stores data
+        z2 = [z2; tA];
+    end
+end
+
+%z1: sum_j(z_ij)=1 i = {2,..., T}
+function z1 = getZ1(T)
+    z1 = []; %Stores data
+    %i = {2,..., T}
+    for iA=2:T
+        tA = [];%temporary array
+        %Creates vector
+        for j = 1:T
+            for i = 1:T
+                if iA == i
+                    tA = [tA 1];
+                else
+                    tA = [tA 0];
+                end
+            end
+        end
+        %Creates an empty y 
+        tA = [tA zeros(1,T)];
+        %Stores data
+        z1 = [z1; tA];
     end
 end
 
@@ -300,7 +255,7 @@ function cV = costVector(T, S)
             cV=[cV findDist(x1,x2,y1,y2)];
         end
     end
-    cV = [cV zeros(1,(T)^2)];
+    cV = [cV zeros(1,T)];
 end
 
 %Finds the distance between two points
