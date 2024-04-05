@@ -1,6 +1,7 @@
-\documentclass[11pt]{article}
-    \title{\textbf{Gummi 0.8.0}}
-    \author{Alexander van der Meij}
+\documentclass[11pt]{report}
+	\usepackage{amsmath}
+    \title{\textbf{Predictive Epistmic MRTA Constraints}}
+    \author{Omri Green}
     \date{}
     
     \addtolength{\topmargin}{-3cm}
@@ -10,27 +11,30 @@
 \maketitle
 \thispagestyle{empty}
 
-\section{Introduction}
-Welcome to the latest release of Gummi - the simple {\LaTeX} editor. After a long break in development, we're finally back with version 0.8.0.\\
-With this release we say farewell to the GTK2 toolkit and mark the beginning of the use of GTK3 within our codebase. Many other improvements were also made to enhance your Gummi experience. For a complete list of changes, please see our changelog\footnote{https://raw.githubusercontent.com/alexandervdm/gummi/master/ChangeLog}. 
+\chapter{One Robot Constraints}
+\section{Explanation}
+\subsection{z}
+z is a binary TxT matrix representing the path a robot will go down, with component j represents the task the robot is on, and component i represents what task the robot will go to.
 
-\section{Contributing}
-If you'd like to contribute to this project, here's some ideas:
-\begin{description}
-\addtolength{\itemindent}{0.80cm}
-\itemsep0em 
-\item[Development] fix bugs or add features to our C/GTK codebase
-\item[Documentation] edit the user guide to improve user experience
-\item[Localization] translate Gummi in your native language
-\item[Testing] try out the latest and report your findings
-\end{description}
-Refer to the \emph{Getting Involved}\footnote{https://github.com/alexandervdm/gummi/wiki/Getting-Involved} section on our wiki for more information. 
+\subsection{y}
+y is a 1xT matrix where n represents the order in which the task is completed
+\section{Lower and Upper Bounds}
+\[\forall i,j \ 0\leq z_{i,j} \leq 1\]
 
-\section{What's next}
-Within the 0.8.x release series we will focus on adding minor features but mostly fixing bugs. New functionality will be integrated into the next major release. An overview of currently accepted features can be found on the 0.9.0 milestone\footnote{https://github.com/alexandervdm/gummi/milestone/3} page.
+\[n=[2,...,T]\ 2\leq y_n\leq T \ \]
+\section{Linear Inequality Constraints}
 
-\section{In closing}
-We hope you will enjoy using this release as much as we enjoyed creating it. If you have any further comments, suggestions or wish to report an issue, please visit \emph{\textbf{https://gummi.app}}. 
+\[i,j=[2,...,T] \ y_i - y_j +(T-1)z_{ij} \leq T-2 \]
+\section{Linear Equality Constraint}
+\[ \forall j,i=[2,...,T]\ \underset{j}{\sum}z_{i,j}=1\]
+\[\forall i,j=[1,...,T-1] \ \underset{i}{\sum}z_{i,j}=1\]
+\[\forall i,j \ \underset{i}{\sum}\underset{j}{\sum}z_{ij}=T-1\]
+\[\forall i \underset{i}{\sum}z_{ii}=0\]
+\[\ S=1 \ y_S=1\]
 
+\chapter{Homogeneous Multi-Robot Constraints}
+In-Progress
+
+\chapter {Heterogeneous Multi-Robot Constraints}
+Not Started
 \end{document}
-

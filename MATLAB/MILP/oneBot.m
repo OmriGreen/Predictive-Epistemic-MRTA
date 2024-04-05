@@ -12,7 +12,7 @@ clear, clc
 
 % Scenario Setup
 S = 50; % The max X and max Y positions
-T = 20; % Number of Tasks
+T = 5; % Number of Tasks
 
 % Cost Vector
 cV = costVector(T, S);
