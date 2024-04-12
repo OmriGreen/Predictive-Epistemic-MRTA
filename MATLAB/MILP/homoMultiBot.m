@@ -13,7 +13,7 @@ clear, clc
 % Scenario Setup
 S = 50; % The max X and max Y positions
 T = 4; % Number of Tasks
-K = 5; % Number of Robots
+K = 2; % Number of Robots
 
 % Cost Vector
 cV = costVector(T, S,K);
@@ -59,7 +59,7 @@ function print(input,T,K)
         x
     end
 end
-%Prints out a 2d representation of 
+
 
 %% ======= Bound Calculations =======
 %Lower Bound
@@ -74,13 +74,10 @@ function lb = calcLB(T,K)
             end
         end
         %Creates each Y
-        %y_S
-        lb = [lb 1];
-        %y_n >= 0, n = {2,...,T-1}
-        for n = 2:T-1
+        %for all n
+        for n = 1:T-1
             lb = [lb 0];
         end
-        %y_E >= 2
         lb = [lb 2];
     end
 end
@@ -101,386 +98,348 @@ function ub = calcUB(T,K)
         ub = [ub 1];
         %y_n <= T-1, n = {2,...,T-1}
         for n = 2:T-1
-            ub = [ub T-1];
+            ub = [ub floor(T/K)];
         end
-        %y_E <=T
-        ub = [ub T];
+        %y_E <=T/K+1
+        ub = [ub floor(T/K)+1];
     end
 end
 %% ======= Linear Inequality Constraints ======
 %Calculate Inequality Constraints
 function bI=calcBIeq(T,K)
-    bI = [];   
-    %for all k, i={2,...,T-1}, j = {1,...,T-1}
-    %-sum_j(sum_i(z_ijk))<=-(T-2)/K+1  
-    for i=1:K
-        bI=[bI; -(T-2)/K+1];
+    bI = []; 
+    for i = 1:K*(T-1)^2
+       bI = [bI; floor(T/K)-1];
     end
-    %for all k, i={2,...,T-1}, j = {1,...,T-1}
-    %sum_j(sum_i(z_ijk))<=(T-2)/K+1  
-    for i=1:K
-        bI=[bI; (T-2)/K+1];
-    end
+
 
 end
 
-%Calculate the Inequality Constraints
+%Calculate the Inequality Matrix
 function I=calcIeq(T,K)
-   I=[];
-   %% Z Constraints
-   %for all k, i={2,...,T-1}, j = {1,...,T-1}
-   %-sum_j(sum_i(z_ijk))<=-(T-2)/K+1  
-   I = [I; zL(T,K)];
-   %for all k, i={2,...,T-1}, j = {1,...,T-1}
-   %sum_j(sum_i(z_ijk))<=(T-2)/K+1  
-   I = [I; zG(T,K)];
    %% Flow Constraint
+   I=[];
+   I = [I; getFC(T,K)];
 end
 
-%for all k, i={2,...,T-1}, j = {1,...,T-1}
-%sum_j(sum_i(z_ijk))<=(T-2)/K+1  
-function z = zG(T,K)
-    z = [];
-    %Chooses what k will be analyzed
-    for r = 1:K
-        zR = [];
-        %Goes Through all robots
-        for k = 1:K
-            zK = [];
-            %Goes Through all z
+%y_j-y_i +(T/K-1)z_ij <= T/K-2 i,j={2,...T/K}
+function fC = getFC(T,K)
+    fC = [];
+
+    %i,j={2,...T}
+    for jC = 2:T
+        for iC = 2:T
+            tA = [];
+            %Goes Through z
             for j = 1:T
-                zJ = [];
                 for i = 1:T
-                    if r==k && j<T && i>1 && i < T
-                        zJ = [zJ 1];
+                    %(T-1)z_ij
+                    if i==iC && j==jC
+                        tA = [tA floor(T/K)];
+                       
                     else
-                        zJ = [zJ 0];
+                        tA = [tA 0];
                     end
                 end
-                zK = [zK zJ];
             end
-            zK = [zK zeros(1,T)];
-            zR = [zR zK];
+            %Creates y
+            for n = 1:T
+                %If iC=jC y_i-y_n=0 therefore y_iC=0
+                %-y_i
+                if n == iC && iC~=jC
+                    tA = [tA -1];
+                else
+                    %y_j
+                    if n == jC && iC~=jC
+                        tA = [tA 1];
+                    %If iC == jC or n~=iC,jC
+                    else
+                        tA = [tA 0];
+                    end
+                end
+            end
+            for kC=1:K
+                flow = [];
+                for k = 1:K
+                    if k==kC
+                        flow=[flow tA];
+                    else
+                        %[r,c] = size(tA);
+                        flow=[flow zeros(1,T^2+T)];
+                    end
+                end
+                fC = [fC; flow]; 
+
+            end
         end
-        z = [z; zR];
     end
 end
 
-%for all k, i={2,...,T-1}, j = {1,...,T-1}
-   %-sum_j(sum_i(z_ijk))<=-(T-2)/K+1  
-function z = zL(T,K)
-    z = [];
-    %Chooses what k will be analyzed
-    for r = 1:K
-        zR = [];
-        %Goes Through all robots
-        for k = 1:K
-            zK = [];
-            %Goes Through all z
-            for j = 1:T
-                zJ = [];
-                for i = 1:T
-                    if r==k && j<T && i>1 && i < T
-                        zJ = [zJ -1];
-                    else
-                        zJ = [zJ 0];
-                    end
-                end
-                zK = [zK zJ];
-            end
-            zK = [zK zeros(1,T)];
-            zR = [zR zK];
-        end
-        z = [z; zR];
-    end
-end
 
 
 %% ===Linear Equality Constraints===
 %Creates all necessary equality constraints
 function beq = calcBeq(T,K)
     beq = [];
-    %% Z Constraints
-    %sum_k(sum_j(z_Sjk))=0
-    beq = [beq; 0];
-    %for all k sum_j(z_Ejk)=1
-    for i=1:K
-        beq = [beq; 1];
-    end
-    %i={2,...,T-1} sum_k(sum_j(z_ijk))=1
-    for i=2:T-1
-        beq = [beq; 1];
-    end
-    %sum_k(sum_i(z_iik))=0
-    beq = [beq; 0];
-    %for all k sum_i(z_iSk) = 1
-    for i=1:K
-        beq = [beq; 1];
-    end
-    %j={2,...,T-1} sum_k(sum_i(z_ijk))=1
-    for i=2:T-1
-        beq = [beq; 1];
-    end
 
-    %% y constraints
-    %for all k y_Sk=1
-    for i=1:K
-        beq = [beq; 1];
-    end
-    %for all k y_E-sum_i(sum_j(z_ijk))=1
-    for i=1:K
-        beq = [beq; 1];
-    end
+   %% y constraints
+   %for all k y_Sk=1
+   for i = 1:K
+       beq = [beq; 1];
+   end
+   %for all k y_Ek-1 = sum_i(sum_j(z_ijk)) -> y_Ek-1-sum_i(sum_j(z_ijk))=0
+   for i = 1:K
+       beq = [beq; 1];
+   end
+
+   %% z constraints
+   % sum_k(sum_i(z_iik))=0
+   beq = [beq; 0];
+   % sum_k(sum_j(z_Sjk))=0
+   beq = [beq; 0];
+   % sum_k(sum_i(z_iEk))=0
+   beq = [beq; 0];
+   %i = [2, ... , T-1] sum_k(sum_j(z_ijk))=1
+   for i = 2:T-1
+       beq = [beq; 1];
+   end
+   % for all k sum_j(z_Ejk)=1
+   for i = 1:K
+       beq = [beq; 1];
+   end
+   %j=[2,T-1] sum_k(sum_k(z_ijk))=1
+   for i = 2:T-1
+       beq = [beq; 1];
+   end
+   %for all k sum_i(z_iSk)=1
+   for i = 1:K
+       beq = [beq; 1];
+   end
 end
 
 % Creates the Equality Matrix
 function Aeq = calcAeq(T,K)
    Aeq = [];
 
-   %% Z Constraints
-   %sum_k(sum_j(z_Sjk))=0
-   Aeq = [Aeq; z_S(T,K)];
-   %for all k sum_j(z_Ejk)=1
-   Aeq = [Aeq; z_E(T,K)];
-   %i={2,...,T-1} sum_k(sum_j(z_ijk))=1
-   Aeq = [Aeq; z_i(T,K)];
-   %sum_k(sum_i(z_iik))=0
-   Aeq = [Aeq; z_ii(T,K)];
-   %for all k sum_i(z_iSk) = 1
-   Aeq = [Aeq; z_iSk(T,K)];
-   %j={2,...,T-1} sum_k(sum_i(z_ijk))=1
-   Aeq = [Aeq; z_j(T,K)];
    %% y constraints
    %for all k y_Sk=1
-   Aeq = [Aeq; y_Sk(T,K)];
-   %for all k y_E-sum_i(sum_j(z_ijk))=1
-   Aeq = [Aeq; y_Ek(T,K)];
+   Aeq = [Aeq; yE1(T,K)];
+   %for all k y_Ek-1 = sum_i(sum_j(z_ijk)) -> y_Ek-1-sum_i(sum_j(z_ijk))=0
+   Aeq = [Aeq; yE2(T,K)];
+       
+   %% z constraints
+   % sum_k(sum_i(z_iik))=0
+   Aeq = [Aeq; zE1(T,K)];
+   % sum_k(sum_j(z_Sjk))=0
+   Aeq = [Aeq; zE2(T,K)];
+   % sum_k(sum_i(z_iEk))=0
+   Aeq = [Aeq; zE3(T,K)];
+   %i = [2, ... , T-1] sum_k(sum_j(z_ijk))=1
+   Aeq = [Aeq; zE4(T,K)];
+   % for all k sum_j(z_Ejk)=1
+   Aeq = [Aeq; zE5(T,K)];
+   %j=[2,T-1] sum_k(sum_k(z_ijk))=1
+   Aeq = [Aeq; zE6(T,K)];
+   %for all k sum_i(z_iSk)=1
+   Aeq = [Aeq; zE7(T,K)];
 end
 
-%for all k y_E-sum_i(sum_j(z_ijk))=1
-function y=y_Ek(T,K)
-    y=[];
-    %For all seperate robots
-    for r=1:K
-        yR = [];
-    %Goes Through every robot
-        for k=1:K
-            yK=[];
-            %Enters in -1 if k==r for all z otherwise it enters 0
-            if k==r
-                yR=[yR -ones(1,T^2)];
-            else
-                yR=[yR zeros(1,T^2)];
-            end
-            
-            %Enters in y_Sk=1 when k==r
-            for n=1:T
-                if r==k && n==T
-                    yR=[yR 1];
-                else
-                    yR=[yR 0];
-                end
-            end
-            
-        end
-        y=[y;yR];
-
-    end
-end
-
-
-%for all k y_Sk=1
-function y=y_Sk(T,K)
-    y=[];
-    %For all seperate robots
-    for r=1:K
-        yR = [];
-    %Goes Through every robot
-        for k=1:K
-            yK=[];
-            %Enters in 0 for all z
-            yR=[yR zeros(1,T^2)];
-            
-            %Enters in y_Sk=1 when k==r
-            for n=1:T
-                if r==k && n==1
-                    yR=[yR 1];
-                else
-                    yR=[yR 0];
-                end
-            end
-            
-        end
-        y=[y;yR];
-
-    end
-end
-
-
-%j={2,...,T-1} sum_k(sum_i(z_ijk))=1
-function z = z_j(T,K)
+%for all k sum_i(z_iSk)=1
+function z = zE7(T,K)
     z = [];
-    %For all j levels
-    for jC=2:T-1
-        zR = [];
-    %Goes Through every robot
-        for k=1:K
-            zK=[];
-            %Goes Through z for robot# k
-            for j=1:T
-              zJK = [];
-              for i = 1:T
-                   if j == jC
-                       zJK=[zJK 1];
-                   else
-                       zJK=[zJK 0];
-                   end
-              end
-              zK = [zK zJK];
-              
-            end
-            zR=[zR zK];
-            zR = [zR zeros(1,T)];
-            
-        end
-        z=[z;zR];
-
-    end
-end
-
-%for all k sum_i(z_iSk) = 1
-function z = z_iSk(T,K)
-    z = [];
-    %For all seperate robots
-    for r=1:K
-        zR = [];
-    %Goes Through every robot
-        for k=1:K
-            zK=[];
-            %Goes Through z for robot# k
-            for j=1:T
-              zJK = [];
-              for i = 1:T
-                   if j == 1 && r==k
-                       zJK=[zJK 1];
-                   else
-                       zJK=[zJK 0];
-                   end
-              end
-              zK = [zK zJK];
-              
-            end
-            zR=[zR zK];
-            zR = [zR zeros(1,T)];
-            
-        end
-        z=[z;zR];
-
-    end
-end
-
-%sum_k(sum_i(z_iik))=0
-function z = z_ii(T,K)
-    z = [];
-    zT = [];
-    for j = 1:T
-        for i = 1:T
-            if i==j
-                zT = [zT 1];
-            else
-                zT = [zT 0];
-            end
-        end
-    end
-    zT = [zT zeros(1,T)];
-    
-    for k = 1:K
-        z = [z zT];
-    end
-    
-
-end
-
-
-%i={2,...,T-1} sum_j(z_ijk))=1
-function z=z_i(T,K)
-    z = [];
-    %Goes through all columns except the end and start
-    for c=2:T-1
+    for kC=1:K
         zC = [];
-        %Goes Through Every Robot
-        for k=1:K
-            zK = [];
-            %Goes Through z for robot # k
-            for j=1:T
-                zJC = [];
+        for k = 1:K
+            if k == kC
+                zC = [zC ones(1,T)];
+                zC = [zC zeros(1,T^2)];
+            else
+                zC = [zC zeros(1,T^2+T)];
+            end
+        end
+        z = [z; zC];
+    end
+end
+
+%j=[2,T-1] sum_k(sum_k(z_ijk))=1
+function z = zE6(T,K)
+    z = [];
+    for jC = 2:T-1
+        zC = [];
+        for k = 1:K
+            for j = 1:T
                 for i = 1:T
-                    if i==c
-                        zJC = [zJC 1];
+                    if j==jC
+                        zC = [zC 1];
                     else
-                        zJC = [zJC 0];
+                        zC = [zC 0];
                     end
                 end
-                zK = [zK zJC];
             end
-            zC = [zC zK];
+            zC = [zC zeros(1,T)];
+        end
+        z = [z;zC];
+    end
+end
+
+% for all k sum_j(z_Ejk)=1
+function z = zE5(T,K)
+    z = [];
+    %Determines which robot is being analyzed
+    for kC = 1:K
+        zC = [];
+        for k = 1:K
+            for j = 1:T
+                for i = 1:T
+                    if i == T && k == kC
+                        zC = [zC 1];
+                    else
+                        zC = [zC 0];
+                    end
+                end
+            end
             zC = [zC zeros(1,T)];
         end
         z = [z; zC];
     end
 end
-%for all k sum_j(z_Ejk)=1
-function z=z_E(T,K)
-    z = [];
-    %For all seperate robots
-    for r=1:K
-        zR = [];
-    %Goes Through every robot
-        for k=1:K
-            zK=[];
-            %Goes Through z for robot# k
-            for j=1:T
-              zJK = [];
-              for i = 1:T
-                   if i == T && r==k
-                       zJK=[zJK 1];
-                   else
-                       zJK=[zJK 0];
-                   end
-              end
-              zK = [zK zJK];
-              
-            end
-            zR=[zR zK];
-            zR = [zR zeros(1,T)];
-        end
-        z=[z;zR];
 
+%i = [2, ... , T-1] sum_k(sum_j(z_ijk))=1
+function z = zE4(T,K)
+    z = [];
+    %Determines which column is being analyzed
+    for iC = 2:T-1
+        zC = [];
+        for k = 1:K
+            %Goes Through all z
+            for j = 1:T
+                for i = 1:T
+                    if i==iC
+                        zC = [zC 1];
+                    else
+                        zC = [zC 0];
+                    end
+                end
+            end
+            zC = [zC zeros(1,T)];
+        end
+        z = [z;zC];
     end
 end
-%sum_k(sum_j(z_Sjk))=0
-function z=z_S(T,K)
-  z=[];
-  
-  %Goes Through every robot
-  for k=1:K
-      zK=[];
-      %Goes Through z for robot# k
-      for j=1:T
-          zJK = [];
-          for i = 1:T
-               if i == 1
-                   zJK=[zJK 1];
-               else
-                   zJK=[zJK 0];
-               end
-          end
-          zK = [zK zJK];
-          
-      end
-      z=[z zK];
-      z = [z zeros(1,T)];
-  end
+
+% sum_k(sum_i(z_iEk))=0
+function z = zE3(T,K)
+    z = [];
+    for k = 1:K
+        %Goes through all z
+        for j = 1:T
+            for i = 1:T
+                if j==T
+                    z = [z 1];
+                else
+                    z = [z 0];
+                end
+            end
+        end
+        %Goes Through all y
+        z = [z zeros(1,T)];
+    end
+
+end
+
+% sum_k(sum_j(z_Sjk))=0
+function z = zE2(T,K)
+    z = [];
+    for k = 1:K
+        %Goes through all z
+        for j = 1:T
+            for i = 1:T
+                if i==1
+                    z = [z 1];
+                else
+                    z = [z 0];
+                end
+            end
+        end
+        %Goes Through all y
+        z = [z zeros(1,T)];
+    end
+
+end
+
+% sum_k(sum_i(z_iik))=0
+function z = zE1(T,K)
+    z = [];
+    %Creates a generic k vector
+    z_k = [];
+    for j = 1:T
+        for i = 1:T
+            if i==j
+                z_k = [z_k 1];
+            else
+                z_k = [z_k 0];
+            end
+        end
+    end
+    z_k = [z_k zeros(1,T)];
+
+    %Creates the matrix
+    for k = 1:K
+        z = [z z_k];
+    end
+end
+
+%for all k y_Ek-1 = sum_i(sum_j(z_ijk)) -> y_Ek-sum_i(sum_j(z_ijk))=1
+function y = yE2(T,K)
+    y = [];
+
+    %Creates a generic vector to be added
+    y_k = [];
+    %Fills out z for all k
+    y_k = [y_k -ones(1,T^2)];
+    %y_Ek = 1
+    y_k = [y_k zeros(1,T-1)];
+    y_k = [y_k 1];
+
+    %Builds Matrix
+    for kC = 1:K
+        y_C = [];
+        for k = 1:K
+            if k == kC
+                y_C = [y_C y_k];
+            else
+                y_C = [y_C zeros(1, T^2+T)];
+            end
+        end
+        y = [y; y_C];
+    end
+
+end
+%for all k y_Sk=1
+function y=yE1(T,K)
+    y = [];
+
+    %Creates a generic vector to be added
+     y_k = [];
+    %Fills out z for all k
+    y_k = [y_k zeros(1,T^2)];
+    %y_S = 1
+    y_k = [y_k 1];
+    y_k = [y_k zeros(1,T-1)];
+
+    %Builds Matrix
+    for kC = 1:K
+        y_C = [];
+        for k = 1:K
+            if k == kC
+                y_C = [y_C y_k];
+            else
+                y_C = [y_C zeros(1, T^2+T)];
+            end
+        end
+        y = [y; y_C];
+    end
+    
 end
 
 

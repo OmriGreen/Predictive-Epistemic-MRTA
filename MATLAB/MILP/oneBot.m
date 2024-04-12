@@ -12,7 +12,7 @@ clear, clc
 
 % Scenario Setup
 S = 50; % The max X and max Y positions
-T = 5; % Number of Tasks
+T = 7; % Number of Tasks
 
 % Cost Vector
 cV = costVector(T, S);
@@ -73,7 +73,7 @@ function I=calcIeq(T)
    I=getFC(T);
 end
 
-%y_i-y_j +(T-1)z_ij <= T-2 i,j={2,...T}
+%y_j-y_i +(T-1)z_ij <= T-2 i,j={2,...T}
 function fC = getFC(T)
     fC = [];
 
@@ -95,13 +95,13 @@ function fC = getFC(T)
             %Creates y
             for n = 1:T
                 %If iC=jC y_i-y_n=0 therefore y_iC=0
-                %y_i
+                %-y_i
                 if n == iC && iC~=jC
-                    tA = [tA 1];
+                    tA = [tA -1];
                 else
-                    %-y_j
+                    %y_j
                     if n == jC && iC~=jC
-                        tA = [tA -1];
+                        tA = [tA 1];
                     %If iC == jC or n~=iC,jC
                     else
                         tA = [tA 0];
@@ -135,6 +135,7 @@ function beq = calcBeq(T)
     %% y Constraints
     %yS: y_S = 1
     beq = [beq; 1];
+
 end
 
 % Creates the Equality Matrix
@@ -156,6 +157,7 @@ function Aeq = calcAeq(T)
    Aeq = [Aeq; getYs(T)];
    
 end
+
 
 %yS: y_S = 1
 function yS = getYs(T)
