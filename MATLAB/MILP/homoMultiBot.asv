@@ -21,7 +21,7 @@ MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S);
 function MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S)
     rawX = intlinprog(f, intcon, A, b, Aeq, beq, lb, ub);
     print(rawX,T,K);
-    visualizeData(locs,rawX,T,K,S);
+   % visualizeData(locs,rawX,T,K,S);
 end
 
 
@@ -56,26 +56,30 @@ function visualizeData(locs,sol,T,K,S)
         tempEdges = [tempEdges; tE];
     end
     
-  
-    %Orders Tasks per robot
-    edges = [];
-    for k = 1:K
-        subE = [];
-        %Gets a subset of tasks for a robot
-        subset = tempEdges((k-1)*5+1:k*5,:);
-        %Sorts the subset
-        z = size(subset);
-        z = z(2);
-        for iC = 2:T
-            tE = zeros(4,1);
-            for i = 1:z
-               if subset(5,i)==iC
-                   tE = subset(1:4,i);
-               end
+    allVals = sum(sol);
+
+    if allVals > 1
+        %Orders Tasks per robot
+        edges = [];
+        for k = 1:K
+            subE = [];
+            %Gets a subset of tasks for a robot
+            
+            subset = tempEdges((k-1)*5+1:k*5,:);
+            %Sorts the subset
+            z = size(subset);
+            z = z(2);
+            for iC = 2:T
+                tE = zeros(4,1);
+                for i = 1:z
+                   if subset(5,i)==iC
+                       tE = subset(1:4,i);
+                   end
+                end
+                subE = [subE tE];
             end
-            subE = [subE tE];
+            edges = [edges; subE];
         end
-        edges = [edges; subE];
     end
     
     %initially graphs the locations on the map
@@ -101,24 +105,26 @@ function visualizeData(locs,sol,T,K,S)
     xlim([0,S]);
     ylim([0,S]);
 
-    %Draws the path each robot takes
-    for k = 1:K
-        x = [];
-        y = [];
-        subset = edges((k-1)*4+1:k*4,:);
-        for i = 1:T-1
-            tEdge = subset(:,i);
-            tEdge = transpose(tEdge);
-            total = sum(tEdge);
-            if total ~= 0
-                x = [x tEdge(1) tEdge(3)];
-                y = [y tEdge(2) tEdge(4)];
+    if allVals > 1
+        %Draws the path each robot takes
+        for k = 1:K
+            x = [];
+            y = [];
+            subset = edges((k-1)*4+1:k*4,:);
+            for i = 1:T-1
+                tEdge = subset(:,i);
+                tEdge = transpose(tEdge);
+                total = sum(tEdge);
+                if total ~= 0
+                    x = [x tEdge(1) tEdge(3)];
+                    y = [y tEdge(2) tEdge(4)];
+                end
+    
             end
-
+            %Draws the arrow
+            line(x,y);
+    
         end
-        %Draws the arrow
-        line(x,y);
-
     end
 
 
@@ -190,7 +196,11 @@ end
 % Upper Bound
 %for all i,j,z max(z_ijz) = 1, max(y_i)=T
 function ub = calcUB(T,K)
-    u = [ones(1,T^2)];
+    ub = [];
+    temp = [ones(1,T^2) T*ones(1,T)];
+    for i = 1:K
+        ub = [ub temp];
+    end
 end
 
 
@@ -209,12 +219,184 @@ end
 %Creates all necessary equality constraints
 function beq = calcBeq(T,K)
     beq = [];
+    %% y constraints
+    %for all k, S = 1, y_Sk=1
+    ye1 = [];
+    %for all k, E = T, 1 = y_Ek - sum_i,j(z_ijk)
+    ye2 = [];
+    for k = 1:K
+        ye1 = [ye1; 1];
+        ye2 = [ye2; 1];
+    end
+    
+    %% z constraints
+    %i = {2,...,T-1}, T-2 = sum_ijk(z_ijk)
+    ze1 = T-2;
+    %for all k, E = T, 1 = sum_j(z_Ejk)
+    ze2 = [];
+    %E=T,S=1, 0 = sum_jk(z_Sjk) + sum_ik(z_iEk)
+    ze3 = 0;
+    %sum_ik(z_iik)=0
+    ze4 = 0;
+    for k = 1:K
+        ze2 = [ze2; 1];
+    end
+
+
+    beq = [ye1; ye2; ze1; ze2; ze3; ze4];
 end
 
 % Creates the Equality Matrix
 function Aeq = calcAeq(T,K)
-   Aeq = [];
+    Aeq = [];
+    %% y constraints
+    %for all k, S = 1, y_Sk=1
+    ye1 = yE1(T,K);
+    %for all k, E = T, 1 = y_Ek - sum_i,j(z_ijk)
+    ye2 = yE2(T,K);
+
+    %% z constraints
+    %i = {2,...,T-1}, T-2 = sum_ijk(z_ijk)
+    ze1 = zE1(T,K);
+    %for all k, E = T, 1 = sum_j(z_Ejk)
+    ze2 = zE2(T,K);
+    %E=T,S=1, 0 = sum_jk(z_Sjk) + sum_ik(z_iEk)
+    ze3 = zE3(T,K);
+    %sum_ik(z_iik)=0
+    ze4 = zE4(T,K);
+    %for all k, i = {2,...,T-1}, 0 = sum_j(z_ijk-z_jik)
+
+    Aeq = [ye1; ye2; ze1; ze2; ze3; ze4];
 end
+
+%for all k, i = {2,...,T-1}, 0 = sum_j(z_ijk-z_jik)
+function z = zE5(T,K)
+    z = [];
+    for kC = 1:K
+        for iC = 2:T-1
+            zC = [];
+            for k = 1:K
+                if k == kC
+                else
+                    zC = [zC zeros(1,T+T^2)]
+                end
+            end
+        end
+    end
+end
+
+%sum_ik(z_iik)=0
+function z = zE4(T,K)
+    z = [];
+    for k = 1:K
+        for j = 1:T
+            for i = 1:T
+                if i == j
+                    z = [z 1];
+                else
+                    z = [z 0];
+                end
+            end
+        end
+        z = [z zeros(1,T)];
+    end
+end
+
+%E=T,S=1, 0 = sum_jk(z_Sjk) + sum_ik(z_iEk)
+function z = zE3(T,K)
+    z = [];
+    %Creates a template
+    temp = [1 zeros(1,T-1)];
+    for k = 1:K
+        %Creates z
+        for j = 1:T-1
+            z = [z temp];
+        end
+        z = [z ones(1,T)];
+        %Creates y
+        z = [z zeros(1,T)];
+    end
+    
+end
+
+%for all k, E = T, 1 = sum_j(z_Ejk)
+function z = zE2(T,K)
+    z = [];
+    %Creates a template
+    temp = [];
+    for i = 1:T-1
+        temp = [temp 0];
+    end
+    temp = [temp 1];
+    for kC = 1:K
+        zC = [];
+        for k = 1:K
+            if k == kC
+                
+                %adds the template to the list
+                for j = 1:T
+                    zC = [zC temp];
+                end
+                %adds the y values
+                zC = [zC zeros(1,T)];
+            else
+                zC = [zC zeros(1,T+T^2)];
+            end
+        end
+        z = [z; zC];
+    end
+end
+
+%i = {2,...,T-1}, T-2 = sum_ijk(z_ijk)
+function z = zE1(T,K)
+    z = [];
+    for k = 1:K
+        for j = 1:T
+            for i = 1:T
+                if i~= 1 && i~=T
+                    z = [z 1];
+                else
+                    z = [z 0];
+                end
+            end
+        end
+        z = [z zeros(1,T)];
+    end
+end
+%for all k, E = T, 1 = y_Ek - sum_i,j(z_ijk)
+function y = yE2(T,K)
+    y = [];
+    for kC = 1:K
+        yC = [];
+        for k = 1:K
+            if k == kC
+                %Fills z with 1s, y_Ek = sum_i,j(z_ijk) + 1 , 1<=n<=T-1 y_nk = 0
+                yC = [yC -ones(1,T^2) zeros(1, T-1) 1];
+            else
+                yC = [yC zeros(1,T+T^2)];
+            end
+        end
+        y = [y; yC];
+    end
+end
+
+%for all k, S = 1, y_Sk=1
+function y=yE1(T,K)
+    y = [];
+    for kC = 1:K
+        yC = [];
+        for k = 1:K
+            if k == kC
+                %Fills z with 0s, y_Sk = 1, 2<=n<=T y_nk = 0
+                yC = [yC zeros(1,T^2) 1 zeros(1, T-1)];
+            else
+                yC = [yC zeros(1,T+T^2)];
+            end
+        end
+        y = [y; yC];
+    end
+end
+
 
 %% ---------Cost Vector Functions----------
 

@@ -21,7 +21,7 @@ MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S);
 function MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S)
     rawX = intlinprog(f, intcon, A, b, Aeq, beq, lb, ub);
     print(rawX,T,K);
-    visualizeData(locs,rawX,T,K,S);
+   % visualizeData(locs,rawX,T,K,S);
 end
 
 
@@ -219,12 +219,209 @@ end
 %Creates all necessary equality constraints
 function beq = calcBeq(T,K)
     beq = [];
+    %% y constraints
+    %for all k, S = 1, y_Sk=1
+    ye1 = [];
+    %for all k, E = T, 1 = y_Ek - sum_i,j(z_ijk)
+    ye2 = [];
+    for k = 1:K
+        ye1 = [ye1; 1];
+        ye2 = [ye2; 1];
+    end
+    
+    %% z constraints
+    %i = {2,...,T-1}, T-2 = sum_ijk(z_ijk)
+    ze1 = T-2;
+    %for all k, E = T, 1 = sum_j(z_Ejk)
+    ze2 = [];
+    %E=T,S=1, 0 = sum_jk(z_Sjk) + sum_ik(z_iEk)
+    ze3 = 0;
+    %sum_ik(z_iik)=0
+    ze4 = 0;
+    %for all k, i = {2,...,T-1}, 0 = sum_j(z_ijk-z_jik)
+    ze5 = [];
+    for k = 1:K
+        ze2 = [ze2; 1];
+    end
+    for i = 1:K*(T-2)
+        ze5 = [ze5; 0];
+    end
+
+
+    beq = [ye1; ye2; ze1; ze2; ze3; ze4; ze5];
 end
 
 % Creates the Equality Matrix
 function Aeq = calcAeq(T,K)
-   Aeq = [];
+    Aeq = [];
+    %% y constraints
+    %for all k, S = 1, y_Sk=1
+    ye1 = yE1(T,K);
+    %for all k, E = T, 1 = y_Ek - sum_i,j(z_ijk)
+    ye2 = yE2(T,K);
+
+    %% z constraints
+    %i = {2,...,T-1}, T-2 = sum_ijk(z_ijk)
+    ze1 = zE1(T,K);
+    %for all k, E = T, 1 = sum_j(z_Ejk)
+    ze2 = zE2(T,K);
+    %E=T,S=1, 0 = sum_jk(z_Sjk) + sum_ik(z_iEk)
+    ze3 = zE3(T,K);
+    %sum_ik(z_iik)=0
+    ze4 = zE4(T,K);
+    %for all k, i = {2,...,T-1}, 0 = sum_j(z_ijk-z_jik)
+    ze5 = zE5(T,K);
+    Aeq = [ye1; ye2; ze1; ze2; ze3; ze4; ze5];
 end
+
+%for all k, i = {2,...,T-1}, 0 = sum_j(z_ijk-z_jik)
+function z = zE5(T,K)
+    z = [];
+    for kC = 1:K
+        for iC = 2:T-1
+            zC = [];
+            for k = 1:K
+                if k == kC
+                    for j = 1:T
+                        for i = 1:T
+                            if i~= j
+                                if i == iC
+                                    zC = [zC 1];
+                                else
+                                    if j == iC
+                                        zC = [zC -1];
+                                    else
+                                        zC = [zC 0];
+                                    end
+                                end
+                            else
+                                zC = [zC 0];
+                            end
+                        end
+                    end
+                    zC = [zC zeros(1,T)];
+                else
+                    zC = [zC zeros(1,T+T^2)];
+                end
+            end
+            print(zC,T,K);
+            z = [z; zC];
+        end
+    end
+end
+
+%sum_ik(z_iik)=0
+function z = zE4(T,K)
+    z = [];
+    for k = 1:K
+        for j = 1:T
+            for i = 1:T
+                if i == j
+                    z = [z 1];
+                else
+                    z = [z 0];
+                end
+            end
+        end
+        z = [z zeros(1,T)];
+    end
+end
+
+%E=T,S=1, 0 = sum_jk(z_Sjk) + sum_ik(z_iEk)
+function z = zE3(T,K)
+    z = [];
+    %Creates a template
+    temp = [1 zeros(1,T-1)];
+    for k = 1:K
+        %Creates z
+        for j = 1:T-1
+            z = [z temp];
+        end
+        z = [z ones(1,T)];
+        %Creates y
+        z = [z zeros(1,T)];
+    end
+    
+end
+
+%for all k, E = T, 1 = sum_j(z_Ejk)
+function z = zE2(T,K)
+    z = [];
+    %Creates a template
+    temp = [];
+    for i = 1:T-1
+        temp = [temp 0];
+    end
+    temp = [temp 1];
+    for kC = 1:K
+        zC = [];
+        for k = 1:K
+            if k == kC
+                
+                %adds the template to the list
+                for j = 1:T
+                    zC = [zC temp];
+                end
+                %adds the y values
+                zC = [zC zeros(1,T)];
+            else
+                zC = [zC zeros(1,T+T^2)];
+            end
+        end
+        z = [z; zC];
+    end
+end
+
+%i = {2,...,T-1}, T-2 = sum_ijk(z_ijk)
+function z = zE1(T,K)
+    z = [];
+    for k = 1:K
+        for j = 1:T
+            for i = 1:T
+                if i~= 1 && i~=T
+                    z = [z 1];
+                else
+                    z = [z 0];
+                end
+            end
+        end
+        z = [z zeros(1,T)];
+    end
+end
+%for all k, E = T, 1 = y_Ek - sum_i,j(z_ijk)
+function y = yE2(T,K)
+    y = [];
+    for kC = 1:K
+        yC = [];
+        for k = 1:K
+            if k == kC
+                %Fills z with 1s, y_Ek = sum_i,j(z_ijk) + 1 , 1<=n<=T-1 y_nk = 0
+                yC = [yC -ones(1,T^2) zeros(1, T-1) 1];
+            else
+                yC = [yC zeros(1,T+T^2)];
+            end
+        end
+        y = [y; yC];
+    end
+end
+
+%for all k, S = 1, y_Sk=1
+function y=yE1(T,K)
+    y = [];
+    for kC = 1:K
+        yC = [];
+        for k = 1:K
+            if k == kC
+                %Fills z with 0s, y_Sk = 1, 2<=n<=T y_nk = 0
+                yC = [yC zeros(1,T^2) 1 zeros(1, T-1)];
+            else
+                yC = [yC zeros(1,T+T^2)];
+            end
+        end
+        y = [y; yC];
+    end
+end
+
 
 %% ---------Cost Vector Functions----------
 
