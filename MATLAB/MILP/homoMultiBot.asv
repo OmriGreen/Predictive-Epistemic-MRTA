@@ -14,7 +14,7 @@ clear, clc
 %[cV,locs,f,Aeq,beq,intcon,lb,ub,A,b,T,K] = buildConstraints();
 
 %Testing Visualize Data with 2 robots and 4 tasks and a 50x50 grid
-visualizeData([10 15; 20 5; 30 17],[0 1 0 0 0 1 0 0 0 1 2 3],3,1,50);
+visualizeData([10 15; 20 5; 30 17; 40 17],[0 1 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 2 0 3 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 1 0 2 3],4,2,50);
 
 %Solve MILP classically
 %rawX = intlinprog(f, intcon, A, b, Aeq, beq, lb, ub);
@@ -111,7 +111,14 @@ function visualizeData(locs,sol,T,K,S)
 
         end
         %Draws the arrow
-        line(x,y);
+        s = size(x);
+        s = s(2);
+
+        for i = 1:s
+            if mod(i,2) == 0
+                quiver
+            end
+        end
 
     end
 
