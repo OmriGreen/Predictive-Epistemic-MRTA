@@ -11,14 +11,20 @@
 clear, clc
 
 %Gets all constraints and locations
-%[cV,locs,f,Aeq,beq,intcon,lb,ub,A,b,T,K] = buildConstraints();
+[S,cV,locs,f,Aeq,beq,intcon,lb,ub,A,b,T,K] = buildConstraints();
 
-%Testing Visualize Data with 2 robots and 4 tasks and a 50x50 grid
-visualizeData([10 15; 20 5; 30 17],[0 1 0 0 0 1 0 0 0 1 2 3],3,1,50);
+%Solves MILP Classically
+MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S);
 
-%Solve MILP classically
-%rawX = intlinprog(f, intcon, A, b, Aeq, beq, lb, ub);
-%print(rawX,T,K);
+
+%% Solve MILP classically
+function MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S)
+    rawX = intlinprog(f, intcon, A, b, Aeq, beq, lb, ub);
+    print(rawX,T,K);
+    visualizeData(locs,rawX,T,K,S);
+end
+
+
 
 %% Visualizes Data
 function visualizeData(locs,sol,T,K,S)
@@ -50,26 +56,30 @@ function visualizeData(locs,sol,T,K,S)
         tempEdges = [tempEdges; tE];
     end
     
-  
-    %Orders Tasks per robot
-    edges = [];
-    for k = 1:K
-        subE = [];
-        %Gets a subset of tasks for a robot
-        subset = tempEdges((k-1)*5+1:k*5,:);
-        %Sorts the subset
-        z = size(subset);
-        z = z(2);
-        for iC = 2:T
-            tE = zeros(4,1);
-            for i = 1:z
-               if subset(5,i)==iC
-                   tE = subset(1:4,i);
-               end
+    allVals = sum(sol);
+
+    if allVals > 1
+        %Orders Tasks per robot
+        edges = [];
+        for k = 1:K
+            subE = [];
+            %Gets a subset of tasks for a robot
+            
+            subset = tempEdges((k-1)*5+1:k*5,:);
+            %Sorts the subset
+            z = size(subset);
+            z = z(2);
+            for iC = 2:T
+                tE = zeros(4,1);
+                for i = 1:z
+                   if subset(5,i)==iC
+                       tE = subset(1:4,i);
+                   end
+                end
+                subE = [subE tE];
             end
-            subE = [subE tE];
+            edges = [edges; subE];
         end
-        edges = [edges; subE];
     end
     
     %initially graphs the locations on the map
@@ -95,24 +105,26 @@ function visualizeData(locs,sol,T,K,S)
     xlim([0,S]);
     ylim([0,S]);
 
-    %Draws the path each robot takes
-    for k = 1:K
-        x = [];
-        y = [];
-        subset = edges((k-1)*4+1:k*4,:);
-        for i = 1:T-1
-            tEdge = subset(:,i);
-            tEdge = transpose(tEdge);
-            total = sum(tEdge);
-            if total ~= 0
-                x = [x tEdge(1) tEdge(3)];
-                y = [y tEdge(2) tEdge(4)];
+    if allVals > 1
+        %Draws the path each robot takes
+        for k = 1:K
+            x = [];
+            y = [];
+            subset = edges((k-1)*4+1:k*4,:);
+            for i = 1:T-1
+                tEdge = subset(:,i);
+                tEdge = transpose(tEdge);
+                total = sum(tEdge);
+                if total ~= 0
+                    x = [x tEdge(1) tEdge(3)];
+                    y = [y tEdge(2) tEdge(4)];
+                end
+    
             end
-
+            %Draws the arrow
+            line(x,y);
+    
         end
-        %Draws the arrow
-        line(x,y);
-
     end
 
 
@@ -176,15 +188,19 @@ end
 
 %% ======= Bound Calculations =======
 %Lower Bound
-%for all i,j,z min(z_ijz) = 0, y_S=1, y_i >=2 n = {2,...,T-1}, y_E >= (T-2)/K-1
+%for all i,j,z min(z_ijz) = 0, min(y_i)=0
 function lb = calcLB(T,K)
-    lb = [];
+    lb = zeros(1,(T+T^2)*K);
 end
 
 % Upper Bound
-%for all i,j,z min(z_ijz) = 0, y_S=1, y_i >=2 n = {2,...,T-1}, y_E >= (T-2)/K-1
+%for all i,j,z max(z_ijz) = 1, max(y_i)=T
 function ub = calcUB(T,K)
     ub = [];
+    temp = [ones(1,T^2) T*ones(1,T)];
+    for i = 1:K
+        ub = [ub temp];
+    end
 end
 
 

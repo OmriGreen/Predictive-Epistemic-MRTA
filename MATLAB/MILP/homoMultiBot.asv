@@ -11,14 +11,20 @@
 clear, clc
 
 %Gets all constraints and locations
-%[cV,locs,f,Aeq,beq,intcon,lb,ub,A,b,T,K] = buildConstraints();
+[S,cV,locs,f,Aeq,beq,intcon,lb,ub,A,b,T,K] = buildConstraints();
 
-%Testing Visualize Data with 2 robots and 4 tasks and a 50x50 grid
-visualizeData([10 15; 20 5; 30 17; 40 17],[0 1 0 0 0 0 0 1 0 0 0 0 0 0 0 0 1 2 0 3 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 1 0 2 3],4,2,50);
+%Solves MILP Classically
+MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S);
 
-%Solve MILP classically
-%rawX = intlinprog(f, intcon, A, b, Aeq, beq, lb, ub);
-%print(rawX,T,K);
+
+%% Solve MILP classically
+function MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S)
+    rawX = intlinprog(f, intcon, A, b, Aeq, beq, lb, ub);
+    print(rawX,T,K);
+    visualizeData(locs,rawX,T,K,S);
+end
+
+
 
 %% Visualizes Data
 function visualizeData(locs,sol,T,K,S)
@@ -111,14 +117,7 @@ function visualizeData(locs,sol,T,K,S)
 
         end
         %Draws the arrow
-        s = size(x);
-        s = s(2);
-
-        for i = 1:s
-            if mod(i,2) == 0
-                quiver
-            end
-        end
+        line(x,y);
 
     end
 
@@ -183,15 +182,15 @@ end
 
 %% ======= Bound Calculations =======
 %Lower Bound
-%for all i,j,z min(z_ijz) = 0, y_S=1, y_i >=2 n = {2,...,T-1}, y_E >= (T-2)/K-1
+%for all i,j,z min(z_ijz) = 0, min(y_i)=0
 function lb = calcLB(T,K)
-    lb = [];
+    lb = zeros(1,(T+T^2)*K);
 end
 
 % Upper Bound
-%for all i,j,z min(z_ijz) = 0, y_S=1, y_i >=2 n = {2,...,T-1}, y_E >= (T-2)/K-1
+%for all i,j,z max(z_ijz) = 1, max(y_i)=T
 function ub = calcUB(T,K)
-    ub = [];
+    u = [ones(1,T^2)];
 end
 
 
