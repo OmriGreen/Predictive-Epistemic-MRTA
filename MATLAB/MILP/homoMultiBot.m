@@ -16,6 +16,26 @@ clear, clc
 %Solves MILP Classically
 MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S);
 
+%% Calculates the number of tasks per robot
+function p = findNumTasks(T,K)
+    p = [];
+    t = T-2;
+    if mod(t,K)==0
+        for k = 1:K
+            p = [p t/K];
+        end
+    else
+        pMin = floor(t/K);
+        pMax = pMin+1;
+        diff = t-K*pMin;
+        for i = 1:diff
+            p = [p pMax+2];
+        end
+        for i = 1:K-diff
+            p = [p pMin+2];
+        end
+    end
+end
 
 %% Solve MILP classically
 function MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S)
@@ -145,9 +165,12 @@ K = input('Enter the number of robots = ');
 [cV,locs] = costVector(T, S,K);
 f = transpose(cV);
 
+%Calculates number of tasks
+p = findNumTasks(T,K);
+
 % Linear Equality Constraint Equation
-Aeq = calcAeq(T,K);
-beq = calcBeq(T,K);
+Aeq = calcAeq(T,K,p);
+beq = calcBeq(T,K,p);
 
 % Integer Variables
 intcon = 1:length(cV);
@@ -159,8 +182,8 @@ lb = calcLB(T,K);
 ub = calcUB(T,K);
 
 % Inequality Constraint Equation
-A = calcIeq(T,K);
-b = calcBIeq(T,K);
+A = calcIeq(T,K,p);
+b = calcBIeq(T,K,p);
 
 end
 
@@ -208,32 +231,75 @@ end
 
 %% ======= Linear Inequality Constraints ======
 %Calculate Inequality Constraints
-function bI=calcBIeq(T,K)
+function bI=calcBIeq(T,K,p)
     bI = []; 
+    %% Flow Constraint: for all k, j = {1,...,T-1},i={2,...,T}, i~=k, y_ik - y_jk + (p_k)z_ijk <= p_k - 1
+    flow = [];
+    for k = 1:K
+        for i = 2:T
+            for j = 1:T-1
+                if i~= j
+                    flow = [flow; p(1,k)-1];
+                end
+            end
+        end
+    end
+    
+    
 end
 
 %Calculate the Inequality Matrix
-function I=calcIeq(T,K)
+function I=calcIeq(T,K,p)
    I=[];
+   %% Flow Constraint: for all k, j = {1,...,T-1},i={2,...,T}, i~=k, y_ik - y_jk + (p_k)z_ijk <= p_k - 1
+   %I = getFlow(T,K,p);
+end
+
+%Flow Constraint: for all k, j = {1,...,T-1},i={2,...,T}, i~=k, y_ik - y_jk + (p_k)z_ijk <= p_k - 1
+function f=getFlow(T,K,p)
+    f = [];
+    for k = 1:K
+        for j = 1:T-1
+            for i = 2:T
+                if i ~=j
+                    fC = zeros(1,K*(T+T^2));
+
+                    %(p_k)z_ijk
+                    zPos = i+(j-1)*T+(k-1)*(T+T^2);
+                    fC(1,zPos)=p(1,k);
+
+                    %y_ik
+                    iPos = T^2 + (k-1)*(T+T^2)+i;
+                    fC(1,iPos) = 1;
+
+                    %-y_jk
+                    jPos = T^2 + (k-1)*(T+T^2) + j;
+                    fC(1,jPos)=-1;
+                    f = [f; fC];
+                end
+            end
+        end
+    end
 end
 
 %% ===Linear Equality Constraints===
 %Creates all necessary equality constraints
-function beq = calcBeq(T,K)
+function beq = calcBeq(T,K,p)
     beq = [];
     %% y constraints
     %for all k, S = 1, y_Sk=1
     ye1 = [];
-    %for all k, E = T, 1 = y_Ek - sum_i,j(z_ijk)
+    %for all k, E=T, p_k = y_Ek
     ye2 = [];
     for k = 1:K
         ye1 = [ye1; 1];
-        ye2 = [ye2; 1];
+        ye2 = [ye2; p(1,k)];
     end
     
+    
     %% z constraints
-    %i = {2,...,T-1}, T-2 = sum_ijk(z_ijk)
-    ze1 = T-2;
+    %for all k, i = {2,...,T-1}, p_k-2 = sum_ijk(z_ijk)
+    ze1 = [];
     %for all k, E = T, 1 = sum_j(z_Ejk)
     ze2 = [];
     %E=T,S=1, 0 = sum_jk(z_Sjk) + sum_ik(z_iEk)
@@ -250,6 +316,7 @@ function beq = calcBeq(T,K)
     ze8 = [];
 
     for k = 1:K
+        ze1 = [ze1; p(1,k)-2];
         ze2 = [ze2; 1];
         ze6 = [ze6; 1];
     end
@@ -262,20 +329,20 @@ function beq = calcBeq(T,K)
     end
 
 
-    beq = [ye1; ye2; ze1; ze2; ze3; ze4; ze5; ze6;ze7;ze8];
+    beq = [ye1; ye2; ze1;ze2;ze3;ze4;ze5;ze6;ze7;ze8];
 end
 
 % Creates the Equality Matrix
-function Aeq = calcAeq(T,K)
+function Aeq = calcAeq(T,K,p)
     Aeq = [];
     %% y constraints
     %for all k, S = 1, y_Sk=1
     ye1 = yE1(T,K);
-    %for all k, E = T, 1 = y_Ek - sum_i,j(z_ijk)
+    %for all k, E=T, p_k = y_Ek
     ye2 = yE2(T,K);
 
     %% z constraints
-    %i = {2,...,T-1}, T-2 = sum_ijk(z_ijk)
+    %for all k, i = {2,...,T-1}, p_k-2 = sum_ijk(z_ijk)
     ze1 = zE1(T,K);
     %for all k, E = T, 1 = sum_j(z_Ejk)
     ze2 = zE2(T,K);
@@ -291,8 +358,8 @@ function Aeq = calcAeq(T,K)
     ze7 = zE7(T,K);
     %i = {2,...,T-1}, sum_j,k(z_ijk)=1
     ze8 = zE8(T,K);
-
-    Aeq = [ye1; ye2; ze1; ze2; ze3; ze4; ze5; ze6; ze7;ze8];
+    
+    Aeq = [ye1; ye2; ze1; ze2;ze3;ze4;ze5;ze6;ze7;ze8];
 end
 
 %i = {2,...,T-1}, sum_j,k(z_ijk)=1
@@ -321,7 +388,6 @@ function z = zE8(T,K)
             end
             zC = [zC zeros(1,T)];
         end
-        print(zC,T,K);
         z = [z; zC];
     end
 end
@@ -459,31 +525,39 @@ function z = zE2(T,K)
     end
 end
 
-%i = {2,...,T-1}, T-2 = sum_ijk(z_ijk)
+%for all k, i = {2,...,T-1}, p_k-1 = sum_ijk(z_ijk)
 function z = zE1(T,K)
     z = [];
-    for k = 1:K
-        for j = 1:T
-            for i = 1:T
-                if i~= 1 && i~=T
-                    z = [z 1];
-                else
-                    z = [z 0];
+    for kC = 1:K
+        zC = [];
+        for k = 1:K
+            if k == kC
+                for j = 1:T
+                    for i = 1:T
+                        if i>1 && i<T
+                            zC = [zC 1];
+                        else
+                            zC = [zC 0];
+                        end
+                    end
                 end
+                zC = [zC zeros(1,T)];
+            else
+                zC = [zC zeros(1,T+T^2)];
             end
         end
-        z = [z zeros(1,T)];
+        z = [z; zC];
     end
 end
-%for all k, E = T, 1 = y_Ek - sum_i,j(z_ijk)
+
+%for all k, E=T, p_k = y_Ek
 function y = yE2(T,K)
     y = [];
     for kC = 1:K
         yC = [];
         for k = 1:K
             if k == kC
-                %Fills z with 1s, y_Ek = sum_i,j(z_ijk) + 1 , 1<=n<=T-1 y_nk = 0
-                yC = [yC -ones(1,T^2) zeros(1, T-1) 1];
+                yC = [yC zeros(1,T^2) zeros(1,T-1) 1];
             else
                 yC = [yC zeros(1,T+T^2)];
             end
