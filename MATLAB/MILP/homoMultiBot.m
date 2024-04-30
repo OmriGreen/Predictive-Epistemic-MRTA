@@ -21,7 +21,7 @@ MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S);
 function MILPClassic(f,intcon,A,b,Aeq,beq,lb,ub,locs,T,K,S)
     rawX = intlinprog(f, intcon, A, b, Aeq, beq, lb, ub);
     print(rawX,T,K);
-   % visualizeData(locs,rawX,T,K,S);
+    %visualizeData(locs,rawX,T,K,S);
 end
 
 
@@ -49,8 +49,10 @@ function visualizeData(locs,sol,T,K,S)
                     timePos = i+T^2 + (k-1)*(T^2+T);
                     e3 = sol(timePos);
                     tE = [tE transpose([e1 e2 e3])];
-
+                else
+                    tE = [tE zeros(5,1)];
                 end
+
             end
         end
         tempEdges = [tempEdges; tE];
@@ -240,15 +242,27 @@ function beq = calcBeq(T,K)
     ze4 = 0;
     %for all k, i = {2,...,T-1}, 0 = sum_j(z_ijk-z_jik)
     ze5 = [];
+    %for all k, S = 1, sum_i(z_iSk)=1
+    ze6 = [];
+    %j = {2,...,T-1}, sum_i,k(z_ijk)=1
+    ze7 = [];
+    %i = {2,...,T-1}, sum_j,k(z_ijk)=1
+    ze8 = [];
+
     for k = 1:K
         ze2 = [ze2; 1];
+        ze6 = [ze6; 1];
     end
     for i = 1:K*(T-2)
         ze5 = [ze5; 0];
     end
+    for n = 2:T-1
+        ze7 = [ze7; 1];
+        ze8 = [ze8; 1];
+    end
 
 
-    beq = [ye1; ye2; ze1; ze2; ze3; ze4; ze5];
+    beq = [ye1; ye2; ze1; ze2; ze3; ze4; ze5; ze6;ze7;ze8];
 end
 
 % Creates the Equality Matrix
@@ -271,7 +285,81 @@ function Aeq = calcAeq(T,K)
     ze4 = zE4(T,K);
     %for all k, i = {2,...,T-1}, 0 = sum_j(z_ijk-z_jik)
     ze5 = zE5(T,K);
-    Aeq = [ye1; ye2; ze1; ze2; ze3; ze4; ze5];
+    %for all k, S = 1, sum_i(z_iSk)=1
+    ze6 = zE6(T,K);
+    %j = {2,...,T-1}, sum_i,k(z_ijk)=1
+    ze7 = zE7(T,K);
+    %i = {2,...,T-1}, sum_j,k(z_ijk)=1
+    ze8 = zE8(T,K);
+
+    Aeq = [ye1; ye2; ze1; ze2; ze3; ze4; ze5; ze6; ze7;ze8];
+end
+
+%i = {2,...,T-1}, sum_j,k(z_ijk)=1
+function z = zE8(T,K)
+    z = [];
+    for iC = 2:T-1
+        zC = [];
+        %Creates Template
+        temp = [];
+        for i = 1:T
+            if i == iC
+               temp = [temp 1];
+            else
+                temp = [temp 0];
+            end
+
+        end
+        for k = 1:K
+            for j = 1:T
+                if j~=1 && j~=T
+                    zC = [zC temp];
+                else
+                    zC = [zC zeros(1,T)];
+                end
+
+            end
+            zC = [zC zeros(1,T)];
+        end
+        print(zC,T,K);
+        z = [z; zC];
+    end
+end
+
+%j = {2,...,T-1}, sum_i,k(z_ijk)=1
+function z = zE7(T,K)
+    z = [];
+    for jC = 2:T-1
+        zC = [];
+        for k = 1:K
+            for j = 1:T
+                if j == jC
+                    zC = [zC ones(1,T)];
+                else
+                    zC = [zC zeros(1,T)];
+                end
+            end
+            zC = [zC zeros(1,T)];
+        end
+        z = [z; zC];
+    end
+end
+
+%for all k, S = 1, sum_i(z_iSk)=1
+function z = zE6(T,K)
+    z = [];
+    for kC = 1:K
+        zC = [];
+        for k = 1:K
+            if k == kC
+                zC = [zC ones(1,T) zeros(1,T^2)];
+
+            else
+                zC = [zC zeros(1,T+T^2)];
+            end
+        end
+        z = [z; zC];
+    end
 end
 
 %for all k, i = {2,...,T-1}, 0 = sum_j(z_ijk-z_jik)
@@ -304,7 +392,6 @@ function z = zE5(T,K)
                     zC = [zC zeros(1,T+T^2)];
                 end
             end
-            print(zC,T,K);
             z = [z; zC];
         end
     end
